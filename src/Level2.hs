@@ -17,8 +17,15 @@ import Text.Read (readMaybe)
 -- пары, правое поддерево. Первая компонента пары по-прежнему игнорируется.
 -- Выберите минимально необходимый набор методов. Законы Ord — лекция 6.
 
-todoImpl ''Ord ''IntTree
-
+instance Ord IntTree where
+  compare :: IntTree -> IntTree -> Ordering
+  compare IntLeaf IntLeaf   = EQ
+  compare IntLeaf _         = LT
+  compare _ IntLeaf         = GT 
+  compare (IntNode l1 (_, x1) r1) (IntNode l2 (_, x2) r2)
+    | let res = compare l1 l2, res /= EQ    = res
+    | x1 /= x2                              = compare x1 x2
+    | otherwise                             = compare r1 r2
 
 -- 2.2. Циклический перебор.
 -- Реализуйте класс типов CycleEnum. Обе его функции cycSucc и cycPred
@@ -31,9 +38,17 @@ class CycleEnum a where
   cycSucc :: a -> a
   cycPred :: a -> a
 
-todoImpl ''CycleEnum ''Bool
-todoImpl ''CycleEnum ''Int8
+instance CycleEnum Bool where
+  cycPred = not
+  cycSucc = cycPred
 
+instance CycleEnum Int8 where
+  cycPred x
+    | x /= minBound   = x - 1
+    | otherwise       = maxBound
+  cycSucc x
+    | x /= maxBound   = x + 1
+    | otherwise       = minBound
 
 -- 2.3. Обёртка для циклического перебора.
 -- Для newtype-обёртки Cycling реализуйте CycleEnum при условии, что оборачиваемый
@@ -42,8 +57,14 @@ todoImpl ''CycleEnum ''Int8
 newtype Cycling a = Cycling a
   deriving newtype (Eq, Show, Bounded, Enum)
 
-todoImpl ''CycleEnum ''Cycling
-
+-- todoImpl ''CycleEnum ''Cycling
+instance (Eq a, Bounded a, Enum a) => CycleEnum (Cycling a) where
+  cycPred x
+    | x /= minBound = pred x
+    | otherwise     = maxBound
+  cycSucc x
+    | x /= maxBound = succ x
+    | otherwise     = minBound
 
 -- 2.4. Печать строк матрицы.
 -- Matrix хранит список непустых строк; равенство длин строк НЕ требуется.
@@ -56,7 +77,11 @@ todoImpl ''CycleEnum ''Cycling
 newtype Matrix a = Matrix [NonEmpty a]
   deriving Eq
 
-todoImpl ''Show ''Matrix
+-- todoImpl ''Show ''Matrix
+instance Show a => Show (Matrix a) where
+  show m = case m of
+    Matrix []         -> "EMPTY"
+    Matrix (x:xs)     -> foldl (\x y -> x ++ "\n" ++ y) (show (NE.toList x)) (fmap (show . NE.toList) xs)
 
 
 -- 2.5. Разберите показанную матрицу.
@@ -91,7 +116,8 @@ parseMatrix raw = case lines raw of
 -- сравните её через Eq, а второй компонентой пренебрегите.
 -- Напишите инстанс целиком, выбрав необходимые ограничения.
 
-todoImpl ''StructEq ''(,)
+instance Eq e => StructEq ((,) e) where
+  (==#) (x, _) (y, _) = x == y
 
 
 -- 2.7. Функтор внутри списка, функции и пары.
@@ -104,4 +130,8 @@ todoImpl ''StructEq ''(,)
 newtype PairReaderList e p a = PairReaderList
   { getPairReaderList :: [e -> (p, a)] }
 
-todoImpl ''Functor ''PairReaderList
+-- todoImpl ''Functor ''PairReaderList
+instance Functor (PairReaderList e p) where
+  fmap :: (a -> b) -> PairReaderList e p a -> PairReaderList e p b
+  fmap _ (PairReaderList [])     = (PairReaderList [])
+  fmap f (PairReaderList funcs)  = (PairReaderList (fmap (\g -> (\(x, y) -> (x, f y)) . g) funcs))

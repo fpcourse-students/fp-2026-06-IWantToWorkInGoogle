@@ -24,8 +24,11 @@ toChurch n
 fromChurch :: Church -> Integer
 fromChurch (Church n) = n (+ 1) 0
 
-todoImpl ''Show ''Church
-todoImpl ''Eq ''Church
+instance Show Church where
+  show church = "Church " ++ show (fromChurch church)
+
+instance Eq Church where
+  (==) x y = fromChurch x == fromChurch y
 
 
 -- 3.2. Арифметика и перечисление чисел Чёрча.
@@ -40,11 +43,24 @@ todoImpl ''Eq ''Church
 -- всем законам Num. Не переносите его в код, ожидающий кольцо.
 -- Напишите список [4,6,8,10,12,14] с помощью синтаксиса Enum и Num.
 
-todoImpl ''Enum ''Church
-todoImpl ''Num ''Church
+-- todoImpl ''Enum ''Church
+instance Enum Church where
+  fromEnum n        = fromInteger (fromChurch n)
+  toEnum n          = toChurch (toInteger n)
+  succ (Church n)   = Church $ \s z -> s (n s z)
+  pred (Church n)   = Church $ \s z -> fst $ n (\(_, b) -> (b, s b)) (z, z)
+
+-- todoImpl ''Num ''Church
+instance Num Church where
+  (+) (Church n) (Church n') = Church $ \s z -> n s (n' s z)
+  (*) (Church n) (Church n') = Church $ \s z -> n (n' s) z
+  (-) n (Church n') = n' pred n
+  abs n         = n
+  signum n      = if n == toChurch 0 then 0 else 1 
+  fromInteger n = toChurch n
 
 from4To14 :: [Church]
-from4To14 = todo "3.2 range"
+from4To14 = enumFromThenTo (toChurch 4) (toChurch 6) (toChurch 14)
 
 
 -- 3.3. Явный словарь Functor.
@@ -58,10 +74,10 @@ newtype MyFunctor f = MkMyFunctor
   { myFmap :: forall a b. (a -> b) -> f a -> f b }
 
 myListFmap :: MyFunctor []
-myListFmap = todo "3.3 list"
+myListFmap = MkMyFunctor { myFmap = map }
 
 myMaybeFmap :: MyFunctor Maybe
-myMaybeFmap = todo "3.3 maybe"
+myMaybeFmap = MkMyFunctor { myFmap = \f m -> case m of Nothing -> Nothing; Just x -> Just (f x)}
 
 case1 :: [Int]
 case1 = myFmap myListFmap (^ (2 :: Int)) [1 .. 10]
